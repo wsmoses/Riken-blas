@@ -1,0 +1,194 @@
+#include "ozblas_common.h"
+
+template <typename TYPE1, typename TYPE2>
+int32_t ozblasRgemv (
+	ozblasHandle_t *oh,
+	const char transA, 
+	const int32_t m, const int32_t n,
+	const TYPE1 alpha,
+	const TYPE1 *devA, const int32_t lda,
+	const TYPE1 *devB, const int32_t incx,
+	const TYPE1 beta,
+	TYPE1 *devC, const int32_t incy
+) {
+	if (oh->reproModeFlag == 0 && oh->nSplitMax == 1) {
+		blasRgemv (transA, m, n, alpha, (TYPE1*)devA, lda, (TYPE1*)devB, incx, beta, devC, incy);
+		return 0;
+	}
+	if (incx != 1 || incy != 1 ) {
+		fprintf (OUTPUT, "OzBLAS error: incx and incy are not supported.\n");
+		exit (1);
+	}
+	counterInit (oh);
+	double t1, t0 = timer();
+	short *devASpExp, *devBSpExp;
+	TYPE2 *devASplit, *devBSplit, *devCSplit;
+	TYPE1 *devATmp, *devBTmp, *devCTmp;
+	TYPE1 *devAmax_, *devBmax_;
+	TYPE2 *devAmax, *devATmpD1, *devATmpD2, *devATmpD3;
+	TYPE2 *devBmax, *devBTmpD1, *devBTmpD2, *devBTmpD3;
+	#if defined (FLOAT128) // this is for QSGEMV
+	double *devCTmp1, *devCTmp2, *devCTmp3;
+	#else
+	TYPE2 *devCTmp1, *devCTmp2, *devCTmp3;
+	#endif
+	int32_t ldas, ldbs, ldcs, ldase, ldat;
+	int32_t nSplitMaxLoc = (oh->nSplitMax > 0) ? oh->nSplitMax : NumSplitDefaultMax;
+	int32_t sizeType1 = sizeof (TYPE1);
+	int32_t sizeType2 = sizeof (TYPE2);
+	int32_t memAddrTmp = oh->memAddr;
+	// on GEMV, use nRow/nCol instead of nRowBk,nbk (different fashion for transposed case)
+	const int32_t nRow = (checkTrans(transA) == 0) ? m : n;
+	const int32_t nCol = (checkTrans(transA) == 0) ? n : m;
+	int32_t nRowBk = nRow; // on GEMV, nRowBk is varied with blocking (nCol is const)
+	while (nRowBk > 0) {
+		ozblasMatAddrAlloc (oh, nCol, nRowBk * nSplitMaxLoc, sizeType2, (void**)&devASplit, ldas); // always transposed
+		ozblasMatAddrAlloc (oh, nCol,          nSplitMaxLoc, sizeType2, (void**)&devBSplit, ldbs);
+		ozblasMatAddrAlloc (oh, nCol, nRowBk               , sizeType1, (void**)&devATmp,   ldat);
+		ozblasVecAddrAlloc (oh, nCol,                        sizeType1, (void**)&devBTmp); // note: use 'n', not 'nbk'
+		ozblasMatAddrAlloc (oh, nRowBk, nSplitMaxLoc * nSplitMaxLoc, sizeType2, (void**)&devCSplit, ldcs);
+		ozblasVecAddrAlloc (oh, nRowBk, sizeType1, (void**)&devCTmp);
+		if (oh->sumModeFlag == 3) {
+			int32_t sizeType = sizeType2;
+			#if defined (FLOAT128)
+			sizeType = sizeof(double);
+			#endif
+			ozblasVecAddrAlloc (oh, nRowBk, sizeType, (void**)&devCTmp1);
+			ozblasVecAddrAlloc (oh, nRowBk, sizeType, (void**)&devCTmp2);
+			ozblasVecAddrAlloc (oh, nRowBk, sizeType, (void**)&devCTmp3);
+		}
+		// Exp
+		ozblasMatAddrAlloc (oh, nRowBk, nSplitMaxLoc, sizeof(short), (void**)&devASpExp, ldase);
+		ozblasVecAddrAlloc (oh, nSplitMaxLoc, sizeof(short), (void**)&devBSpExp);
+		// Splitting
+		ozblasVecAddrAlloc (oh, nRowBk, sizeType1, (void**)&devAmax_);
+		ozblasVecAddrAlloc (oh,    1, sizeType1, (void**)&devBmax_);
+		// above must be allocated even if splitModeFlag is 3 as they may be used if Split3 is not used
+		if (oh->splitModeFlag == 3) {
+			ozblasVecAddrAlloc (oh, nRowBk, sizeType2, (void**)&devAmax);
+			ozblasVecAddrAlloc (oh,      1, sizeType2, (void**)&devBmax);
+			ozblasMatAddrAlloc (oh, nCol, nRowBk, sizeType2, (void**)&devATmpD1, ldat); 
+			ozblasMatAddrAlloc (oh, nCol, nRowBk, sizeType2, (void**)&devATmpD2, ldat); 
+			ozblasMatAddrAlloc (oh, nCol, nRowBk, sizeType2, (void**)&devATmpD3, ldat); 
+			ozblasVecAddrAlloc (oh, nCol, sizeType2, (void**)&devBTmpD1);
+			ozblasVecAddrAlloc (oh, nCol, sizeType2, (void**)&devBTmpD2);
+			ozblasVecAddrAlloc (oh, nCol, sizeType2, (void**)&devBTmpD3);
+		}
+		if (!memCheck (oh)) break;
+		oh->memAddr = memAddrTmp;
+		nRowBk = ceil (nRowBk / 2.);
+	}
+
+	int32_t block_count = 0;
+	for (int32_t im = 0; im < ceil((float)nRow/nRowBk); im++) {
+		int32_t nRowBk_ = (nRow-nRowBk*im >= nRowBk) ? nRowBk : nRow-nRowBk*im;
+
+		// Split of A -----------------------------------
+		t1 = timer();
+		int32_t split3FlagA;
+		int32_t nSplitA;
+		if (checkTrans (transA) == 0) {
+			split3FlagA = (oh->splitModeFlag == 3) ? rangeCheck <TYPE1, TYPE2> (nRowBk_, nCol, devA+im*nRowBk, lda) : 0; // on (if 1)
+			blasRomatcopy ('t', nRowBk_, nCol, devA+im*nRowBk, lda, devATmp, ldat); // transpose
+			if (split3FlagA) 
+				nSplitA = ozblasSplit3 (oh, 'c', nCol, nRowBk_, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax,
+										devATmpD1, ldat, devATmpD2, ldat, devATmpD3, ldat, devATmpD1, ldat);
+			else
+				nSplitA = ozblasSplit (oh, 'c', nCol, nRowBk_, devATmp, ldat, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax_);
+			//nSplitA = ozblasSplit (oh, 'r', nRowBk_, nCol, devA+im*nRowBk, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax_);
+		} else {
+			split3FlagA = (oh->splitModeFlag == 3) ? rangeCheck <TYPE1, TYPE2> (nRowBk_, nCol, devA+im*nRowBk, lda) : 0; // on (if 1)
+			if (split3FlagA) 
+				nSplitA = ozblasSplit3 (oh, 'c', nRowBk_, nCol, devA+im*nRowBk, lda, devASplit, ldas, devASpExp, ldase, devAmax,
+										devATmpD1, ldat, devATmpD2, ldat, devATmpD3, ldat, devATmpD1, ldat);
+			else
+				nSplitA = ozblasSplit (oh, 'c', nRowBk_, nCol, devA+im*nRowBk, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax_);
+		}
+		oh->t_SplitA += timer() - t1;
+
+		// Split of X -----------------------------------
+		t1 = timer();
+		//const int32_t n_ = (checkTrans (transA) == 0) ? n : nRowBk;
+		int32_t split3FlagB = (oh->splitModeFlag == 3) ? rangeCheck <TYPE1, TYPE2> (nCol, 1, devB, nCol) : 0; // on (if 1)
+		int32_t nSplitB;
+		if (split3FlagB) 
+			nSplitB = ozblasSplit3 (oh, 'c', nCol, 1, devB, nCol, devBSplit, ldbs, devBSpExp, 1, devBmax,
+									devBTmpD1, nCol, devBTmpD2, nCol, devBTmpD3, nCol, devBTmpD1, nCol);
+		else
+			nSplitB = ozblasSplit (oh, 'c', nCol, 1, devB, nCol, devBTmp, nCol, devBSplit, ldbs, devBSpExp, 1, devBmax_);
+		oh->t_SplitB += timer() - t1;
+
+		// Compute --------------------------------------
+		t1 = timer();
+		int32_t ia, ib, ic, ik;
+		const int32_t maxlevel = (oh->fastModeFlag) ? MIN (nSplitA-1, nSplitB-1) : (nSplitA-1) + (nSplitB-1);
+		TYPE2 fone = 1., fzero = 0.;
+		TYPE2 *ptrA, *ptrB, *ptrC;
+		ptrC = devCSplit;
+		ic = 0;
+		for (ia = 0; ia < MIN (maxlevel+1, nSplitA); ia++) {
+			const int32_t numB = MIN (nSplitB, maxlevel+1 - ia);
+			ptrA = (checkTrans(transA) == 0) ? devASplit+ldas*nRowBk_*ia : devASplit+ldas*n*ia;
+			ptrB = devBSplit;
+			if (checkTrans(transA) == 0)
+				blasRgemm ('t', 'n', nRowBk_, numB, nCol, fone, ptrA, ldas, ptrB, ldbs, fzero, ptrC, ldcs);
+//				blasRgemm ('n', 'n', nRowBk_, numB, nCol, fone, ptrA, ldas, ptrB, ldbs, fzero, ptrC, ldcs);
+			else
+				blasRgemm ('t', 'n', nCol, numB, nRowBk_, fone, ptrA, ldas, ptrB, ldbs, fzero, ptrC, ldcs);
+			ptrC += ldcs*numB;
+			ic += numB;
+		}
+		block_count++;
+		const int32_t nSplitC = ic;
+		oh->nSplitA += nSplitA;
+		oh->nSplitB += nSplitB;
+		oh->nSplitC += nSplitC;
+		oh->t_comp += timer() - t1;
+
+		// Sum -----------------------------------------
+		t1 = timer();
+		ic = 0;
+		if (oh->sumModeFlag == 3) {
+			for (ik = 0; ik <= maxlevel; ik++) {
+				for (ia = 0; ia < nSplitA; ia++) {
+					for (ib = 0; ib < nSplitB; ib++) {
+						if (ik == ia + ib) {
+							int32_t it = nSplitA * ib + ia;
+							if (ozblasLocalFsum3 (nRowBk_, 1, &devASpExp[ldase*ia], &devBSpExp[ib], devCSplit+ldcs*it, ldcs,
+												devCTmp, nRow, devCTmp1, nRow, devCTmp2, nRow, devCTmp3, nRow, (ic==nSplitC-1)?-1:ic)) {
+								// here you can write re-do codes without Sum3
+								fprintf (OUTPUT, "OzBLAS error: Sum3 is failed.\n");
+								exit (1);
+							}
+							ic++;
+						} // EndIf (ik)
+					} // EndFor (ib)
+				} // EndFor (ia)
+			} // EndFor (ik)
+			ozblasAxpby (nRowBk_, 1, devCTmp, 1, &devC[im*nRow], 1, alpha, beta);
+		} else { // sumMode < 3
+			if (ozblasGlobalSum (oh, nRowBk_, 1, devASpExp, ldase, nSplitA, devBSpExp, 1, nSplitB,
+								devCSplit, ldcs, ldcs, &devC[im*nRow], 1, alpha, beta, maxlevel, 2)) { 
+				fprintf (OUTPUT, "OzBLAS error: sum is failed\n");
+				exit (1);
+			}
+		}
+		oh->t_sum += timer() - t1;
+	} // EndFor (im)
+
+	oh->t_total = timer() - t0;
+	oh->nSplitA /= (float)block_count;
+	oh->nSplitB /= (float)block_count;
+	oh->nSplitC /= (float)block_count;
+
+	return 0;
+}
+#if defined (FLOAT128)
+template int32_t ozblasRgemv <__float128, double> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const __float128 alpha, const __float128 *devA, const int32_t lda, const __float128 *devB, const int32_t incx, const __float128 beta, __float128 *devC, const int32_t incy);
+template int32_t ozblasRgemv <__float128, float> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const __float128 alpha, const __float128 *devA, const int32_t lda, const __float128 *devB, const int32_t incx, const __float128 beta, __float128 *devC, const int32_t incy);
+#endif
+template int32_t ozblasRgemv <double, double> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t incx, const double beta, double *devC, const int32_t incy);
+template int32_t ozblasRgemv <double, float> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t incx, const double beta, double *devC, const int32_t incy);
+template int32_t ozblasRgemv <float, float> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t incx, const float beta, float *devC, const int32_t incy);
+template int32_t ozblasRgemv <float, double> (ozblasHandle_t *oh, const char transA, const int32_t m, const int32_t n, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t incx, const float beta, float *devC, const int32_t incy);
+

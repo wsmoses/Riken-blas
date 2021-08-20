@@ -1,0 +1,55 @@
+OzBLAS 1.4 alpha 03c mini
+Aug. 14, 2021
+Daichi Mukunoki, Takeshi Ogita, Katsuhisa Ozaki, Toshiyuki Imamura
+Contact: Daichi Mukunoki (daichi.mukunoki@riken.jp)
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+This is a mini version for demonstrating the GPU code
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+(1) Overview
+OzBLAS is an accurate and reproducible BLAS implementation on CPU (x86) and GPU (CUDA) [2] based on the Ozaki scheme [1].
+- Accurate: computing inner product with infinite-precision operations (or tunable accuracy, there is a trade-off between speed and accuracy). Scalar parameters (e.g., alpha and beta in GEMM: C=alpha*AB+beta*C) are computed with working-precision; e.g, on GEMM, if alpha=1.0 and beta=0.0, C=AB can be computed with infinite-precision with one rounding (to the working-precision result)
+- Reproducible - ensuring bit-wise identical results on CPUs and GPUs even with different numbers of cores and SIMD lengths.
+This code is an experimental version. We do not guarantee the computation result. 
+
+(2) Requirements:
+libozblas (CPU version)
+- GNU or Intel compiler
+- MKL (possible to use OpenBLAS but need to prepare batched GEMM yourself)
+libcuozblas (GPU version)
+- CUDA and cuBLAS
+testing (common for CPU and GPU)
+- CBLAS or MPLAPACK: if you want to compare the result with MPFR, you need MPLAPACK (http://mplapack.sourceforge.net, v0.9.3 or later). MPFR is included in MPLAPACK, but MPLAPACK must be built with MPFR (see configure's help).
+
+(3) Build:
+Modify "make.inc"
+Then, make
+Note: the implementation consumes a large working memory. If you will compute large matrices, it is better to be as large as possible for performance.
+You can set the working memory size in "testing/testing_setting.h" at "#define WORK_MEM_SIZE" (default is 8e9bytes = 8GB).
+
+(4) Usage:
+See examples in 'testing' directory.
+E.g.,
+- ozblasDgemm, CPU version, check result (by comparing with CBLAS or MPLAPACK)
+./testing_ozblas_dgemm
+- cuozblasDgemm, GPU version
+./testing_cuozblas_dgemm
+- With a specified problem size (m=n=k=100)
+./testing_cuozblas_dgemm --mnk=100 
+- With a specified problem size (m=10, n=20, k=30)
+./testing_cuozblas_dgemm --m=10 --n=10 --k=30
+- With different problem sizes (from m=n=k=100 to 1000 with 100-step)
+./testing_cuozblas_dgemm --range=100:1000:100 
+- Performance evaluation
+./testing_cuozblas_dgemm --mode=p
+- Matrix transpose
+./testing_cuozblas_dgemm --transa=t --transb=t
+etc.
+If it is working correctly, the error compared to MPFR (MPLAPACK) should be zero; if MPLAPACK is not being used, it will be compared to CBLAS, so an error of working-precision level will be observed.
+
+(5) References:
+[1] K. Ozaki, T. Ogita, S. Oishi, S. M. Rump: Error-free transformations of matrix multiplication by using fast routines of matrix multiplication and its applications, Numer. Algorithms, vol. 59, no. 1, pp. 95-118, 2012.
+[2] D. Mukunoki, T. Ogita, K. Ozaki: Accurate and Reproducible BLAS Routines with Ozaki Scheme for Many-core Architectures, Proc. 13th International Conference on Parallel Processing and Applied Mathematics (PPAM2019), LNCS, Vol. 12043, pp. 516-527, 2019.
+[3] D. Mukunoki, K. Ozaki, T. Ogita, R. Iakymchuk: Conjugate Gradient Solvers with High Accuracy and Bit-wise Reproducibility between CPU and GPU using Ozaki scheme, Proc. The International Conference on High Performance Computing in Asia-Pacific Region (HPCAsia 2021), pp. 100-109, 2021.
+
