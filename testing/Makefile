@@ -1,43 +1,48 @@
 # Makefile
 include ../make.inc
 
+# CXX = ~/git/Polygeist/mlir-build/bin/clang++ --cuda-gpu-arch=sm_60 -resource-dir ~/git/Polygeist/mlir-build/lib/clang/14.0.0/ -L /usr/local/cuda-11.2/lib64 -l cudart_static -l dl -l rt -l pthread -l m -fopenmp -I /usr/local/cuda-11.2/targets/x86_64-linux/include -I /opt/intel/compilers_and_libraries_2020.4.304/linux/mkl/include -I /home/wmoses/git/Polygeist/mlir-build/projects/openmp/runtime/src
+
 # common -------------------------------------
-FLAGS	= -O2 -Wall -MD -Wno-unused-but-set-variable
-INCS	+= -I$(INC_PATH) -I../include
-LDFLAGS += -L$(LIB_PATH) -L../lib
+FLAGS	= -O2 
+# -Wall -MD -Wno-unused-but-set-variable
+INCS	+= -I $(INC_PATH) -I ../include
+LDFLAGS += -L $(LIB_PATH) -L ../lib
+LINKAGE = static
 
 # -------------------------------------------
 ifeq ($(CUDA),yes)
 OBJS	+= $(CUOZBLAS_OBJS) 
 OBJS	+= $(CUBLAS_OBJS) 
-INCS	+= -I$(CUDA_PATH)/include 
-LDFLAGS	+= -L$(CUDA_PATH)/lib64
-LIBS	+= -lcublasLt -lcudart -lcublas -lcusparse -lcuozblas
+INCS	+= -I $(CUDA_PATH)/include 
+LDFLAGS	+= -L $(CUDA_PATH)/lib64
+LIBS	+= -l cublasLt -l cudart -l cublas -l cusparse -l cuozblas
 endif
-ifeq ($(CUBLAS),yes)
-INCS	+= -I$(CUDA_PATH)/include 
-LDFLAGS	+= -L$(CUDA_PATH)/lib64 
-LIBS	+= -lcudart -lcublas
-FLAGS	+= -DCUBLAS
+#ifeq ($(CUBLAS),yes)
+ifeq (no,yes)
+INCS	+= -I $(CUDA_PATH)/include 
+LDFLAGS	+= -L $(CUDA_PATH)/lib64 
+LIBS	+= -l cudart -l cublas
+FLAGS	+= -D CUBLAS
 endif
 
-ifeq ($(CPU),yes)
+ifeq (yes,yes)
 OBJS	+= $(OZBLAS_OBJS) 
-LIBS	+= -lozblas 
+LIBS	+= -l ozblas 
 ifeq ($(CPU_BLAS),MKL)
-FLAGS	+= -DMKL
+FLAGS	+= -D MKL
 ifeq ($(LINKAGE),static)
-LIBS	+= -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group 
+LIBS	+= -Wl,--start-group $(MKLROOT)//libmkl_intel_lp64.a $(MKLROOT)/libmkl_gnu_thread.a $(MKLROOT)/libmkl_core.a -Wl,--end-group 
 else
-LIBS	+= -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core #-liomp5
+LIBS	+= -l mkl_intel_lp64 -l mkl_intel_thread -l mkl_core #-liomp5
 endif
 endif
 ifeq ($(CPU_BLAS),OpenBLAS)
-FLAGS	+= -DOpenBLAS
+FLAGS	+= -D OpenBLAS
 ifeq ($(LINKAGE),static)
 LIBS	+= -Wl,-Bstatic,-lopenblas
 else
-LIBS	+= -lopenblas
+LIBS	+= -l openblas
 endif
 endif
 endif
@@ -49,16 +54,16 @@ OBJS	+= $(MPBLAS_OBJS)
 ifeq ($(LINKAGE),static)
 LIBS	+= -Wl,-Bstatic,-lmpblas_mpfr -lmpfr
 else
-LIBS	+= -lmpblas_mpfr -lmpfr
+LIBS	+= -l mpblas_mpfr -l mpfr
 endif
-LIBS	+= -lmpc -lgmp -std=c++11 -std=gnu++17
-FLAGS	+= -DMPLAPACK
+LIBS	+= -l mpc -l gmp -std=c++11 -std=gnu++17
+FLAGS	+= -D MPLAPACK
 endif
 
-ifeq ($(LINKAGE),static)
-LIBS	+= -Wl,-Bdynamic
-endif
-LIBS	+= -lstdc++ -lm -lc -ldl 
+#ifeq ($(LINKAGE),static)
+#LIBS	+= -Wl,-Bdynamic
+#endif
+LIBS	+= -l stdc++ -l m -l c -l dl 
 
 # compiler -----------------------------------
 ifeq ($(CXX),icpc)
@@ -162,61 +167,61 @@ SRC_L3	= testing_level3.cpp
 
 ### CUOZBLAS ###################################################################################################
 testing_cuozblas_sgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMM -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMM -D PREC_S_S
 testing_cuozblas_sgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMV -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMV -D PREC_S_S
 testing_cuozblas_sdot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DDOT -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D DOT -D PREC_S_S
 
 testing_cuozblas_sdgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMM -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMM -D PREC_S_D
 testing_cuozblas_sdgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMV -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMV -D PREC_S_D
 testing_cuozblas_sddot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DDOT -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D DOT -D PREC_S_D
 
 testing_cuozblas_dsgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMM -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMM -D PREC_D_S
 testing_cuozblas_dsgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMV -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMV -D PREC_D_S
 testing_cuozblas_dsdot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DDOT -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D DOT -D PREC_D_S
 
 testing_cuozblas_dgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMM -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMM -D PREC_D_D
 testing_cuozblas_dgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DGEMV -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D GEMV -D PREC_D_D
 testing_cuozblas_ddot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DCUDA -DCUOZBLAS -DDOT -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D CUDA -D CUOZBLAS -D DOT -D PREC_D_D
 
 ### OZBLAS ###################################################################################################
 testing_ozblas_sgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMM -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMM -D PREC_S_S
 testing_ozblas_sgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMV -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMV -D PREC_S_S
 testing_ozblas_sdot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DDOT -DPREC_S_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D DOT -D PREC_S_S
 
 testing_ozblas_sdgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMM -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMM -D PREC_S_D
 testing_ozblas_sdgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMV -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMV -D PREC_S_D
 testing_ozblas_sddot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DDOT -DPREC_S_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D DOT -D PREC_S_D
 
 testing_ozblas_dsgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMM -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMM -D PREC_D_S
 testing_ozblas_dsgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMV -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMV -D PREC_D_S
 testing_ozblas_dsdot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DDOT -DPREC_D_S
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D DOT -D PREC_D_S
 
 testing_ozblas_dgemm: $(SRC_L3)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMM -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMM -D PREC_D_D
 testing_ozblas_dgemv: $(SRC_L2)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DGEMV -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D GEMV -D PREC_D_D
 testing_ozblas_ddot: $(SRC_L1B)
-	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -DOZBLAS -DDOT -DPREC_D_D
+	$(CXX) $(FLAGS) $(INCS) $(LDFLAGS) $< -o $@ $(LIBS) -D OZBLAS -D DOT -D PREC_D_D
 
 clean:
 	$(RM) $(OBJS)

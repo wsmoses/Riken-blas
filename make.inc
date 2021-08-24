@@ -16,8 +16,9 @@ INC_PATH	= $(HOME)/local/include
 
 #--- Compiler --------------------------------
 #CXX: g++, icpc
-CXX = ~/git/Polygeist/mlir-build/bin/clang++ --cuda-gpu-arch=sm_60 -L /usr/local/cuda-11.2/lib64 -lcudart_static -ldl -lrt -lpthread -lm -fopenmp -I /usr/local/cuda-11.2/targets/x86_64-linux/include
-
+# CXX = ~/git/Polygeist/mlir-build/bin/clang++ --cuda-gpu-arch=sm_60 -L /usr/local/cuda-11.2/lib64 -l cudart_static -l dl -l rt -l pthread -l m -fopenmp -I /usr/local/cuda-11.2/targets/x86_64-linux/include -I /opt/intel/compilers_and_libraries_2020.4.304/linux/mkl/include -I /home/wmoses/git/Polygeist/mlir-build/projects/openmp/runtime/src
+CXX = ~/git/Polygeist/build/mlir-clang/mlir-clang --cuda-gpu-arch=sm_60 -resource-dir ~/git/Polygeist/mlir-build/lib/clang/14.0.0/ -L /usr/local/cuda-11.2/lib64 -lcudart_static -ldl -lrt -lpthread -lm -I/usr/local/cuda-11.2/targets/x86_64-linux/include -I/opt/intel/compilers_and_libraries_2020.4.304/linux/mkl/include -I/home/wmoses/git/Polygeist/mlir-build/projects/openmp/runtime/src --function=* --cuda-lower -cpuify -L  ~/git/Polygeist/mlir-build/lib
+MKLROOT = /opt/intel/compilers_and_libraries_2020.4.304/linux/mkl/lib/intel64_lin
 #--- CPU (OzBLAS) / CUDA (cuOzBLAS) ----------
 CPU  = yes
 CUDA = yes

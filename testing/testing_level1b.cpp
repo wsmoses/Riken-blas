@@ -60,8 +60,8 @@ main (int32_t argc, char **argv)
 		int32_t sizeType = sizeof (FP_TYPE);
 		cudaMalloc ((void **) &dev_X, sizeType * th.dim_n_dev * th.incx);
 		cudaMalloc ((void **) &dev_Y, sizeType * th.dim_n_dev * th.incy);
-		cublasSetVector(th.dim_n_dev * th.incx, sizeType, hst_X, 1, dev_X, 1);
-		cublasSetVector(th.dim_n_dev * th.incy, sizeType, hst_Y, 1, dev_Y, 1);
+		//cublasSetVector(th.dim_n_dev * th.incx, sizeType, hst_X, 1, dev_X, 1);
+		//cublasSetVector(th.dim_n_dev * th.incy, sizeType, hst_Y, 1, dev_Y, 1);
 		#endif
 
 		printf ("--\t%d\t--", th.dim_n_dev);

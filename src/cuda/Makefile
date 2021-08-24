@@ -1,27 +1,11 @@
 # Makefile
 include ../../make.inc
 
-NVCC	= $(CUDA_PATH)/bin/nvcc 
+NVCC	= $(CXX)
 AR		= ar
 LIB		:= ../../lib/libcuozblas.a
-FLAGS   := -Wall -MD -O3 -Wno-maybe-uninitialized -I$(INC_PATH) 
-NVCCFLAGS   := -O3 --expt-relaxed-constexpr
-
-ifeq ($(CC60),yes)
-NVCCFLAGS += -gencode arch=compute_60,code=sm_60
-endif
-ifeq ($(CC61),yes)
-NVCCFLAGS += -gencode arch=compute_61,code=sm_61
-endif
-ifeq ($(CC70),yes)
-NVCCFLAGS += -gencode arch=compute_60,code=sm_70
-endif
-ifeq ($(CC75),yes)
-NVCCFLAGS += -gencode arch=compute_60,code=sm_75
-endif
-ifeq ($(CC86),yes)
-NVCCFLAGS += -gencode arch=compute_60,code=sm_86
-endif
+FLAGS   := -O3 -I $(INC_PATH) 
+NVCCFLAGS   := -O3 
 
 all: blas
 
@@ -55,9 +39,9 @@ blas: $(ALLOBJ)
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
 %.o: %.cpp
-	$(CXX) $(FLAGS) -o $@ -c $< -I$(CUDA_PATH)/include
+	$(CXX) $(FLAGS) -o $@ -c $< -I $(CUDA_PATH)/include
 #cuozblas.o: cuozblas.cpp
-	$(CXX) $(FLAGS) -o $@ -c $< -I$(CUDA_PATH)/include
+	$(CXX) $(FLAGS) -o $@ -c $< -I $(CUDA_PATH)/include
 
 clean :
 	$(RM) *.o *.d

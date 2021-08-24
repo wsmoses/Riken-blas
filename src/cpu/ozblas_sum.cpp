@@ -432,10 +432,11 @@ int32_t ozblasGlobalSum (
 ) {
 	int32_t check = 0;
 	if (oh->sumModeFlag == 1) { // Nearsum
-		if (typeid(TYPE1) != typeid(TYPE2)) {
-			fprintf (OUTPUT, "OzBLAS error: Nearsum is not supported when TYPE1 != TYPE2.\n");
-			exit (1);
-		} else {
+		// if (typeid(TYPE1) != typeid(TYPE2)) {
+		//	fprintf (OUTPUT, "OzBLAS error: Nearsum is not supported when TYPE1 != TYPE2.\n");
+		//	exit (1);
+		//} else
+        {
 			if (m == 1 && n == 1) { // for DOT
 				devC[0] = alpha * ozblasNearsumNpara (nSplitA*nSplitB, &devCsplit[0], llsc) + beta * devC[0];
 			} else {

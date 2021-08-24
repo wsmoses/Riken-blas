@@ -329,10 +329,11 @@ int32_t cuozblasGlobalSum (
 	
 	int32_t check = 0;
 	if (oh->sumModeFlag == 1) { // Nearsum
-		if (typeid(TYPE1) != typeid(TYPE2)) {
-			fprintf (OUTPUT, "OzBLAS error: Nearsum is not supported when TYPE1 != TYPE2.\n");
-			exit (1);
-		} else {
+		//if (typeid(TYPE1) != typeid(TYPE2)) {
+		//	fprintf (OUTPUT, "OzBLAS error: Nearsum is not supported when TYPE1 != TYPE2.\n");
+		//	exit (1);
+		//} else
+        {
 			cuozblasGlobalNearsumKernel <<< grid, threads >>> (m, n, devASpExp, ldase, nSplitA, devBSpExp, ldbse, nSplitB,
 							  devCsplit, llsc, ldsc, devC, ldc, alpha, beta, maxlevel, sumOrder, &check);
 		}

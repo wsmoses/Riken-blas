@@ -1,3 +1,4 @@
+#include <cstdint>
 // ----- testing handler ---------------------------------------------------------------
 struct testingHandle_t {
 	#if defined (CUDA) 
@@ -115,6 +116,7 @@ void dim_dev_setup (testingHandle_t *th) {
 }
 
 void dim_dev_increment (testingHandle_t *th) {
+#if 0
 	if (th->dim_m_const == 0) {
 		switch (th->dim_step_mode) {
 			case 1: th->dim_m_dev *= 10; break;
@@ -136,6 +138,7 @@ void dim_dev_increment (testingHandle_t *th) {
 			default: th->dim_k_dev += th->dim_step; break;
 		}
 	}
+#endif
 }
 
 __inline__ double gettime () {
@@ -172,6 +175,8 @@ double getMaxTime (
 }
 
 int32_t get_num_sp_cores (int32_t cc) {
+    return 0;
+#if 0
 	switch (cc) {
 		case 300: return 192;
 		case 320: return 192;
@@ -186,9 +191,12 @@ int32_t get_num_sp_cores (int32_t cc) {
 		case 700: return 64;
 		default: return 0;
 	}
+#endif
 }
 
 int32_t get_num_dp_cores (int32_t cc) {
+    return 0;
+#if 0
 	switch (cc) {
 		case 300: return 64;
 		case 320: return 64;
@@ -203,6 +211,7 @@ int32_t get_num_dp_cores (int32_t cc) {
 		case 700: return 32;
 		default: return 0;
 	}
+#endif
 }
 
 void dev_setting (testingHandle_t *th) {
@@ -287,6 +296,7 @@ void testingCreate (
  	// args ---------------------------
 	int32_t opt, opt_index;
 	optind = 1;
+#if 0
 	struct option long_options[] = {
 		{"transa", required_argument, 0, 'a'},
 		{"transb", required_argument, 0, 'b'},
@@ -437,6 +447,7 @@ void testingCreate (
 			}
 		}
 	}
+#endif
 	dev_setting (th);
 
 	#if defined (CUOZBLAS) || defined (OZBLAS)
@@ -632,7 +643,7 @@ void mublasInitMat (
 	srand48(123);
 	switch (mode) {
 		case 1:	// init with constant
-			#pragma omp parallel for 
+			//#pragma omp parallel for 
 			for (j = 0; j < n; j++) {
 				for (int32_t i = 0; i < m; i++) {
 					FP_TYPE val = phi;
@@ -644,7 +655,7 @@ void mublasInitMat (
 			break;
 		case 2:	// phi-mode
 			printf ("!!! WARNING !!! phi-mode only supports double-precision.\n");
-			#pragma omp parallel for
+			//#pragma omp parallel for
 			for (j = 0; j < n; j++) {
 				for (int32_t i = 0; i < m; i++) {
 					double mu = 0.0, sigma = 1.0;
@@ -668,7 +679,7 @@ void mublasInitMat (
 			#else
 			f_pi = F_PI;
 			#endif
-			#pragma omp parallel for 
+			//#pragma omp parallel for 
 			for (j = 0; j < n; j++) {
 				for (int32_t i = 0; i < m; i++) {
 					FP_TYPE valf = (drand48()*9+1) * std::pow(10,rand()%(int32_t)phi);
@@ -702,7 +713,7 @@ void mublasInitMat (
 	}	
 	if (!th->nodisp) {
 		FP_TYPE amax = 0., amin = FP_MAX;
-		#pragma omp parallel for reduction(max:amax) reduction(min:amin)
+		//#pragma omp parallel for reduction(max:amax) reduction(min:amin)
 		for (j = 0; j < n; j++) {
 			FP_TYPE amax_local = 0.;
 			FP_TYPE amin_local = FP_MAX; 
@@ -748,7 +759,7 @@ void mublasConvMat (
 	const int32_t ldd
 ) {
 	int32_t j;
-	#pragma omp parallel for
+	//#pragma omp parallel for
 	for (j = 0; j < cd; j++) {
 		for (int32_t i = 0; i < rd; i++) 
 			dst[j*ldd+i] = toMpreal (src[j*lds+i]);
@@ -764,7 +775,7 @@ void mublasCopyMat (
 	const int32_t ldd
 ) {
 	int32_t j;
-	#pragma omp parallel for
+	//#pragma omp parallel for
 	for (j = 0; j < cd; j++) {
 		for (int32_t i = 0; i < rd; i++) 
 			dst[j*ldd+i] = src[j*lds+i];

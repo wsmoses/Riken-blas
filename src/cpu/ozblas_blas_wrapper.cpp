@@ -154,7 +154,7 @@ void blasRgemmBatch (const char transA, const char transB, const int32_t m, cons
 	#if defined (MKL)
 	CBLAS_TRANSPOSE transA_ = ToCblasOp (transA);
 	CBLAS_TRANSPOSE transB_ = ToCblasOp (transB);
-	cblas_sgemm_batch (CblasColMajor, &transA_, &transB_, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc, grp, &cnt);
+	//cblas_sgemm_batch (CblasColMajor, &transA_, &transB_, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc, grp, &cnt);
 	#else
 	fprintf (OUTPUT, "OzBLAS error: GEMM_BATCH is not available.\n");
 	exit(1);
@@ -164,7 +164,7 @@ void blasRgemmBatch (const char transA, const char transB, const int32_t m, cons
 	#if defined (MKL)
 	CBLAS_TRANSPOSE transA_ = ToCblasOp (transA);
 	CBLAS_TRANSPOSE transB_ = ToCblasOp (transB);
-	cblas_dgemm_batch (CblasColMajor, &transA_, &transB_, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc, grp, &cnt);
+	//cblas_dgemm_batch (CblasColMajor, &transA_, &transB_, &m, &n, &k, &alpha, A, &lda, B, &ldb, &beta, C, &ldc, grp, &cnt);
 	#else
 	fprintf (OUTPUT, "OzBLAS error: GEMM_BATCH is not available.\n");
 	exit(1);

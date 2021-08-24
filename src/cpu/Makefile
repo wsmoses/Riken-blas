@@ -3,8 +3,9 @@ include ../../make.inc
 
 AR		= ar
 LIB		:= ../../lib/libozblas.a
-FLAGS   := -Wall -MD -O3 -fPIC -Wno-maybe-uninitialized -I$(INC_PATH) 
+FLAGS   := -O3 -fPIC -I $(INC_PATH) 
 
+# CXX = ~/git/Polygeist/mlir-build/bin/clang++ --cuda-gpu-arch=sm_60 -L /usr/local/cuda-11.2/lib64 -l cudart_static -l dl -l rt -l pthread -l m -I /usr/local/cuda-11.2/targets/x86_64-linux/include -I /opt/intel/compilers_and_libraries_2020.4.304/linux/mkl/include -I /home/wmoses/git/Polygeist/mlir-build/projects/openmp/runtime/src
 #--------------------
 # ARCH and COMPILER
 #--------------------
@@ -30,23 +31,23 @@ ifeq ($(CXX),FCCpx)
 endif
 
 ifeq ($(CPU_ARCH),ARM)
-	FLAGS += -DARM
+	FLAGS += -D ARM
 endif
 
 #--------------------
 # BLAS
 #--------------------
 ifeq ($(CPU_BLAS),MKL)
-	FLAGS += -DMKL 
+	FLAGS += -D MKL 
 endif
 ifeq ($(CPU_BLAS),SSL2)
-	FLAGS += -DSSL2 
+	FLAGS += -D SSL2 
 endif
 ifeq ($(CUBLAS),yes)
-	FLAGS += -DCUBLAS -lcudart -lcublas -I$(CUDA_PATH)/include -L$(CUDA_PATH)/lib64
+	FLAGS += -D CUBLAS -l cudart -l cublas -I $(CUDA_PATH)/include -L $(CUDA_PATH)/lib64
 endif
 ifeq ($(MPLAPACK),yes)
-	FLAGS += -DMPLAPACK
+	FLAGS += -D MPLAPACK
 endif
 
 #--------------------
@@ -59,14 +60,14 @@ ifeq ($(PREC_Q_S),yes)
 	PREC_Q=yes
 endif
 ifeq ($(PREC_Q),yes)
-	FLAGS += -DFLOAT128
+	FLAGS += -D FLOAT128
 ifeq ($(CPU_ARCH),ARM)
 else
-	FLAGS += -lquadmath 
+	FLAGS += -l quadmath 
 endif
 endif
 ifeq ($(PREC_H_S),yes)
-	FLAGS += -DFLOAT16
+	FLAGS += -D FLOAT16
 endif
 
 all: blas

@@ -1,5 +1,19 @@
 #include "ozblas_common.h"
 
+#define ozblasMatAddrAlloc(oh, m, n, T, ddev, ld)\
+{\
+	/*ld = cugetPitchSize (m);*/\
+	ld =  ceil((float)m / 128) * 128;\
+	ddev = new T[ld * n];\
+}
+
+#define ozblasVecAddrAlloc(oh, n, T, ddev)\
+{\
+	/*int32_t ld = cugetPitchSize(n);*/\
+	int32_t ld =  ceil((float)n / 128) * 128;\
+	ddev = new T[ld];\
+}
+
 template <typename TYPE1, typename TYPE2>
 int32_t ozblasRgemm (
 	ozblasHandle_t *oh,	
@@ -25,7 +39,7 @@ int32_t ozblasRgemm (
 	TYPE2 *devASplit, *devBSplit, *devCSplit;
 	TYPE2 fone = 1., fzero = 0.;
 	short *devASpExp, *devBSpExp;
-	#if defined (FLOAT128) // this is for QSGEMM
+	#if 0 && defined (FLOAT128) // this is for QSGEMM
 	double *devCTmp1, *devCTmp2, *devCTmp3;
 	int32_t	sizeTypeT = sizeof(double);
 	#else
@@ -44,40 +58,40 @@ int32_t ozblasRgemm (
 	// Memory allocation 
 	TYPE2 **batchAptr, **batchBptr, **batchCptr;
 	if (oh->useBatchedGemmFlag) {
-		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, sizeof(TYPE2*), (void**)&batchAptr);
-		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, sizeof(TYPE2*), (void**)&batchBptr);
-		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, sizeof(TYPE2*), (void**)&batchCptr);
+		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, TYPE2*, batchAptr);
+		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, TYPE2*, batchBptr);
+		ozblasVecAddrAlloc (oh, nSplitMaxLoc * nSplitMaxLoc, TYPE2*, batchCptr);
 	}
 	int64_t memAddrTmp = oh->memAddr;
 	while (mbk > 0 && nbk > 0) { // blocking
 		int32_t sizeCn = (oh->useBatchedGemmFlag || oh->sumModeFlag < 2) ? (nbk * nSplitMaxLoc * nSplitMaxLoc) : nbk;
-		ozblasMatAddrAlloc (oh, k, mbk * nSplitMaxLoc, sizeType2, (void**)&devASplit, ldas); // Note: A is transposed!! so ldas is k-based
-		ozblasMatAddrAlloc (oh, k, nbk * nSplitMaxLoc, sizeType2, (void**)&devBSplit, ldbs);
-		ozblasMatAddrAlloc (oh, mbk, sizeCn,           sizeType2, (void**)&devCSplit, ldcs);
-		ozblasMatAddrAlloc (oh, k, mbk,                sizeType1, (void**)&devATmp,   ldat); // TRANSPOSE
-		ozblasMatAddrAlloc (oh, k, nbk,                sizeType1, (void**)&devBTmp,   ldbt); 
-		ozblasMatAddrAlloc (oh, mbk, nbk,              sizeType1, (void**)&devCTmp,   ldct);
+		ozblasMatAddrAlloc (oh, k, mbk * nSplitMaxLoc, TYPE2, devASplit, ldas); // Note: A is transposed!! so ldas is k-based
+		ozblasMatAddrAlloc (oh, k, nbk * nSplitMaxLoc, TYPE2, devBSplit, ldbs);
+		ozblasMatAddrAlloc (oh, mbk, sizeCn,           TYPE2, devCSplit, ldcs);
+		ozblasMatAddrAlloc (oh, k, mbk,                TYPE1, devATmp,   ldat); // TRANSPOSE
+		ozblasMatAddrAlloc (oh, k, nbk,                TYPE1, devBTmp,   ldbt); 
+		ozblasMatAddrAlloc (oh, mbk, nbk,              TYPE1, devCTmp,   ldct);
 		if (oh->sumModeFlag >= 2 && oh->useBatchedGemmFlag == 0) {
-			ozblasMatAddrAlloc (oh, mbk, nbk, sizeTypeT, (void**)&devCTmp1, ldct1);
-			ozblasMatAddrAlloc (oh, mbk, nbk, sizeTypeT, (void**)&devCTmp2, ldct2);
-			ozblasMatAddrAlloc (oh, mbk, nbk, sizeTypeT, (void**)&devCTmp3, ldct3);
+			ozblasMatAddrAlloc (oh, mbk, nbk, TYPE2, devCTmp1, ldct1);
+			ozblasMatAddrAlloc (oh, mbk, nbk, TYPE2, devCTmp2, ldct2);
+			ozblasMatAddrAlloc (oh, mbk, nbk, TYPE2, devCTmp3, ldct3);
 		}
 		// Exp
-		ozblasMatAddrAlloc (oh, mbk, nSplitMaxLoc, sizeTypeS, (void**)&devASpExp, ldase);
-		ozblasMatAddrAlloc (oh, nbk, nSplitMaxLoc, sizeTypeS, (void**)&devBSpExp, ldbse);
+		ozblasMatAddrAlloc (oh, mbk, nSplitMaxLoc, short, devASpExp, ldase);
+		ozblasMatAddrAlloc (oh, nbk, nSplitMaxLoc, short, devBSpExp, ldbse);
 		// Splitting
-		ozblasVecAddrAlloc (oh, mbk, sizeType1, (void**)&devAmax_);
-		ozblasVecAddrAlloc (oh, nbk, sizeType1, (void**)&devBmax_);
+		ozblasVecAddrAlloc (oh, mbk, TYPE1, devAmax_);
+		ozblasVecAddrAlloc (oh, nbk, TYPE1, devBmax_);
 		// above must be allocated even if splitModeFlag is 3 as they may be used if Split3 is not used
 		if (oh->splitModeFlag == 3) {
-			ozblasVecAddrAlloc (oh,    mbk, sizeType2, (void**)&devAmax);
-			ozblasMatAddrAlloc (oh, k, mbk, sizeType2, (void**)&devATmpD1, ldat); 
-			ozblasMatAddrAlloc (oh, k, mbk, sizeType2, (void**)&devATmpD2, ldat); 
-			ozblasMatAddrAlloc (oh, k, mbk, sizeType2, (void**)&devATmpD3, ldat); 
-			ozblasVecAddrAlloc (oh,    nbk, sizeType2, (void**)&devBmax);
-			ozblasMatAddrAlloc (oh, k, nbk, sizeType2, (void**)&devBTmpD1, ldbt);
-			ozblasMatAddrAlloc (oh, k, nbk, sizeType2, (void**)&devBTmpD2, ldbt);
-			ozblasMatAddrAlloc (oh, k, nbk, sizeType2, (void**)&devBTmpD3, ldbt);
+			ozblasVecAddrAlloc (oh,    mbk, TYPE2, devAmax);
+			ozblasMatAddrAlloc (oh, k, mbk, TYPE2, devATmpD1, ldat); 
+			ozblasMatAddrAlloc (oh, k, mbk, TYPE2, devATmpD2, ldat); 
+			ozblasMatAddrAlloc (oh, k, mbk, TYPE2, devATmpD3, ldat); 
+			ozblasVecAddrAlloc (oh,    nbk, TYPE2, devBmax);
+			ozblasMatAddrAlloc (oh, k, nbk, TYPE2, devBTmpD1, ldbt);
+			ozblasMatAddrAlloc (oh, k, nbk, TYPE2, devBTmpD2, ldbt);
+			ozblasMatAddrAlloc (oh, k, nbk, TYPE2, devBTmpD3, ldbt);
 		} 
 		if (!memCheck (oh)) break; // check if work-memory is enough or not
 		oh->memAddr = memAddrTmp;

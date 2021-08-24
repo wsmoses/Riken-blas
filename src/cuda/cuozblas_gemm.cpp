@@ -1,5 +1,19 @@
 #include "cuozblas_common.h"
 
+#define cuozblasMatAddrAlloc(oh, m, n, T, ddev, ld)\
+{\
+	/*ld = cugetPitchSize (m);*/\
+	ld =  ceil((float)m / 128) * 128;\
+	ddev = new T[ld * n];\
+}
+
+#define cuozblasVecAddrAlloc(oh, n, T, ddev)\
+{\
+	/*int32_t ld = cugetPitchSize(n);*/\
+	int32_t ld =  ceil((float)n / 128) * 128;\
+	ddev = new T[ld];\
+}
+
 template <typename TYPE1, typename TYPE2>
 int32_t cuozblasRgemm (
 	cuozblasHandle_t *oh,	
@@ -18,9 +32,25 @@ int32_t cuozblasRgemm (
 	cucounterInit (oh);
 	double t1, t0 = cutimer();
 
-	TYPE1 *devATmp, *devBTmp, *devCTmp;
-	TYPE1 *devAmax, *devBmax;
-	TYPE2 *devASplit, *devBSplit, *devCSplit;
+    /*
+	TYPE1 *__attribute__((aligned(8192))) devATmp;
+    TYPE1 *__attribute__((aligned(8192))) devBTmp;
+    TYPE1 *__attribute__((aligned(8192))) devCTmp;
+	TYPE1 *__attribute__((aligned(8192))) devAmax;
+    TYPE1 *__attribute__((aligned(8192))) devBmax;
+	TYPE2 *__attribute__((aligned(8192))) devASplit;
+    TYPE2 *__attribute__((aligned(8192))) devBSplit;
+    TYPE2 *__attribute__((aligned(8192))) devCSplit;
+    */
+	
+    TYPE1 *devATmp;
+    TYPE1 *devBTmp;
+    TYPE1 *devCTmp;
+	TYPE1 *devAmax;
+    TYPE1 *devBmax;
+	TYPE2 *devASplit;
+    TYPE2 *devBSplit;
+    TYPE2 *devCSplit;
 	TYPE2 fone = 1., fzero = 0.;
 	short *devASpExp, *devBSpExp;
 	int32_t ldas, ldbs, ldcs, ldase, ldbse, ldat, ldbt, ldct;
@@ -32,43 +62,52 @@ int32_t cuozblasRgemm (
 	int32_t sizeTypeS = sizeof (short);
 
 	// Memory allocation 
-	TYPE2 **batchAptr, **batchBptr, **batchCptr;
-	TYPE2 **batchAptrHst, **batchBptrHst, **batchCptrHst;
 	int32_t memorysize = 0;
-	batchAptr    = (TYPE2**)(oh->devBatchAddr);
-	batchAptrHst = (TYPE2**)(oh->hstBatchAddr);
+	TYPE2 **batchAptr    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
+	TYPE2 **batchAptrHst    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
 	memorysize  += sizeof(TYPE2*) * nSplitMaxLoc * nSplitMaxLoc;
-	batchBptr    = (TYPE2**)(oh->devBatchAddr + memorysize);
-	batchBptrHst = (TYPE2**)(oh->hstBatchAddr + memorysize);
+	TYPE2 **batchBptr    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
+	TYPE2 **batchBptrHst    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
 	memorysize  += sizeof(TYPE2*) * nSplitMaxLoc * nSplitMaxLoc;
-	batchCptr    = (TYPE2**)(oh->devBatchAddr + memorysize);
-	batchCptrHst = (TYPE2**)(oh->hstBatchAddr + memorysize);
+	TYPE2 **batchCptr    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
+	TYPE2 **batchCptrHst    = new TYPE2*[nSplitMaxLoc * nSplitMaxLoc];
+	/*
+    int32_t memorysize = 0;
+	TYPE2 **batchAptr    = (TYPE2**)(oh->devBatchAddr);
+	TYPE2 **batchAptrHst = (TYPE2**)(oh->hstBatchAddr);
+	memorysize  += sizeof(TYPE2*) * nSplitMaxLoc * nSplitMaxLoc;
+	TYPE2 **batchBptr    = (TYPE2**)(oh->devBatchAddr + memorysize);
+	TYPE2 **batchBptrHst = (TYPE2**)(oh->hstBatchAddr + memorysize);
+	memorysize  += sizeof(TYPE2*) * nSplitMaxLoc * nSplitMaxLoc;
+	TYPE2 **batchCptr    = (TYPE2**)(oh->devBatchAddr + memorysize);
+	TYPE2 **batchCptrHst = (TYPE2**)(oh->hstBatchAddr + memorysize);
+    */
 
 	int32_t memAddrTmp = oh->memAddr;
 	while (mbk > 0 && nbk > 0) { // blocking
 		int32_t sizeCn = nbk * nSplitMaxLoc * nSplitMaxLoc;
 		if (cucheckTrans (transA) == 0) {
-			cuozblasMatAddrAlloc (oh, mbk, k * nSplitMaxLoc, sizeType2, (void**)&devASplit, ldas); 
-			cuozblasMatAddrAlloc (oh, mbk, k,                sizeType1, (void**)&devATmp,   ldat); 
+			cuozblasMatAddrAlloc (oh, mbk, k * nSplitMaxLoc, TYPE2, devASplit, ldas); 
+            cuozblasMatAddrAlloc (oh, mbk, k,                TYPE1, devATmp,   ldat); 
 		} else {
-			cuozblasMatAddrAlloc (oh, k, mbk * nSplitMaxLoc, sizeType2, (void**)&devASplit, ldas); 
-			cuozblasMatAddrAlloc (oh, k, mbk,                sizeType1, (void**)&devATmp,   ldat); 
+			cuozblasMatAddrAlloc (oh, k, mbk * nSplitMaxLoc, TYPE2, devASplit, ldas); 
+			cuozblasMatAddrAlloc (oh, k, mbk,                TYPE1, devATmp,   ldat); 
 		}
 		if (cucheckTrans (transB) == 0) {
-			cuozblasMatAddrAlloc (oh, k, nbk * nSplitMaxLoc, sizeType2, (void**)&devBSplit, ldbs);
-			cuozblasMatAddrAlloc (oh, k, nbk,                sizeType1, (void**)&devBTmp,   ldbt); 
+			cuozblasMatAddrAlloc (oh, k, nbk * nSplitMaxLoc, TYPE2, devBSplit, ldbs);
+			cuozblasMatAddrAlloc (oh, k, nbk,                TYPE1, devBTmp,   ldbt); 
 		} else {
-			cuozblasMatAddrAlloc (oh, nbk, k * nSplitMaxLoc, sizeType2, (void**)&devBSplit, ldbs);
-			cuozblasMatAddrAlloc (oh, nbk, k,                sizeType1, (void**)&devBTmp,   ldbt);
+			cuozblasMatAddrAlloc (oh, nbk, k * nSplitMaxLoc, TYPE2, devBSplit, ldbs);
+			cuozblasMatAddrAlloc (oh, nbk, k,                TYPE1, devBTmp,   ldbt);
 		}
-		cuozblasMatAddrAlloc (oh, mbk, sizeCn,           sizeType2, (void**)&devCSplit, ldcs);
-		cuozblasMatAddrAlloc (oh, mbk, nbk,              sizeType1, (void**)&devCTmp,   ldct);
+		cuozblasMatAddrAlloc (oh, mbk, sizeCn,           TYPE2, devCSplit, ldcs);
+		cuozblasMatAddrAlloc (oh, mbk, nbk,              TYPE1, devCTmp,   ldct);
 		// Exp
-		cuozblasMatAddrAlloc (oh, mbk, nSplitMaxLoc, sizeTypeS, (void**)&devASpExp, ldase);
-		cuozblasMatAddrAlloc (oh, nbk, nSplitMaxLoc, sizeTypeS, (void**)&devBSpExp, ldbse);
+		cuozblasMatAddrAlloc (oh, mbk, nSplitMaxLoc, short, devASpExp, ldase);
+		cuozblasMatAddrAlloc (oh, nbk, nSplitMaxLoc, short, devBSpExp, ldbse);
 		// Splitting
-		cuozblasVecAddrAlloc (oh, mbk, sizeType1, (void**)&devAmax);
-		cuozblasVecAddrAlloc (oh, nbk, sizeType1, (void**)&devBmax);
+		cuozblasVecAddrAlloc (oh, mbk, TYPE1, devAmax);
+		cuozblasVecAddrAlloc (oh, nbk, TYPE1, devBmax);
 		if (!cumemCheck (oh)) break; // check if work-memory is enough or not
 		oh->memAddr = memAddrTmp;
 		mbk = ceil (mbk / 2.);
@@ -79,17 +118,20 @@ int32_t cuozblasRgemm (
 
 	// main part (Split, Comp, Sum)
 	int32_t block_count = 0;
-	for (int32_t im = 0; im < ceil((float)m/mbk); im++) {
+	int32_t im = 0;
+    //for (int32_t im = 0; im < ceil((float)m/mbk); im++) 
+    {
 		int32_t mbk_ = (m-mbk*im >= mbk) ? mbk : m-mbk*im;
 		// SplitA -----------------------------------
-		t1 = cutimer();
+		//t1 = cutimer();
 		int32_t nSplitA = 0;
-		if (cucheckTrans (transA) == 0) 
+		//if (cucheckTrans (transA) == 0) 
 			nSplitA = cuozblasSplit (oh, 'r', mbk_, k, devA+im*mbk, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
-		else 
-			nSplitA = cuozblasSplit (oh, 'c', k, mbk_, devA+im*mbk*lda, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
-		oh->t_SplitA += cutimer() - t1;
+		//else 
+		//	nSplitA = cuozblasSplit (oh, 'c', k, mbk_, devA+im*mbk*lda, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
+		//oh->t_SplitA += cutimer() - t1;
 
+#if 0
 		for (int32_t in = 0; in < ceil((float)n/nbk); in++) {
 			int32_t nbk_ = (n-nbk*in >= nbk) ? nbk : n-nbk*in;
 			// SplitB -----------------------------------
@@ -100,7 +142,6 @@ int32_t cuozblasRgemm (
 			else
 				nSplitB = cuozblasSplit (oh, 'r', nbk_, k, devB+in*nbk, ldb, devBTmp, ldbt, devBSplit, ldbs, devBSpExp, ldbse, devBmax);
 			oh->t_SplitB += cutimer() - t1;
-
 			// Compute --------------------------------------
 			t1 = cutimer();
 			double t_sum_local = 0.;
@@ -146,7 +187,7 @@ int32_t cuozblasRgemm (
 			cudaMemcpy(batchCptr, batchCptrHst, sizeof(TYPE2*) * nSplitC, cudaMemcpyHostToDevice);
 			int32_t n_ = (n == 1 && oh->fastModeFlag == 0) ? numB : nbk_;
 			blasRgemmBatch (oh->ch, transA, transB, mbk_, n_, k, fone, (const TYPE2**)batchAptr, ldas,
-							(const TYPE2**)batchBptr, ldbs, fzero, (TYPE2**)batchCptr, ldcs, 1, nSplitC);
+							(const TYPE2**)batchBptr, ldbs, fzero, (TYPE2**)batchCptrHst, ldcs, 1, nSplitC);
 			oh->t_comp += cutimer() - t1;
 			oh->t_comp -= t_sum_local;
 			oh->t_sum += t_sum_local;
@@ -162,16 +203,18 @@ int32_t cuozblasRgemm (
 			oh->nSplitB += nSplitB;
 			oh->nSplitC += nSplitC;
 		} // EndFor (in)
+#endif
 	} // EndFor (im)
 
-	oh->t_total = cutimer() - t0;
-	oh->nSplitA /= (float)block_count;
-	oh->nSplitB /= (float)block_count;
-	oh->nSplitC /= (float)block_count;
+	//oh->t_total = cutimer() - t0;
+	//oh->nSplitA /= (float)block_count;
+	//oh->nSplitB /= (float)block_count;
+	//oh->nSplitC /= (float)block_count;
 
 	return 0;
 }
+
 template int32_t cuozblasRgemm <double, double> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t ldb, const double beta, double *devC, const int32_t ldc);
 template int32_t cuozblasRgemm <double, float> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t ldb, const double beta, double *devC, const int32_t ldc);
 template int32_t cuozblasRgemm <float, float> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t ldb, const float beta, float *devC, const int32_t ldc); 
-template int32_t cuozblasRgemm <float, double> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t ldb, const float beta, float *devC, const int32_t ldc); 
+template int32_t cuozblasRgemm <float, double> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t ldb, const float beta, float *devC, const int32_t ldc);

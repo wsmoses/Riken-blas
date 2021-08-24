@@ -18,9 +18,11 @@ int32_t cuozblasRdot (
 	}
 
 	TYPE1 fone = 1., fzero = 0.;
-	cuozblasRgemm <TYPE1, TYPE2> (oh, 't', 'n', 1, 1, n, fone, devA, n, devB, n, fzero, (TYPE1*)oh->devWorkCommon, 1);
-	cudaMemcpy (ret, oh->devWorkCommon, sizeof(TYPE1), cudaMemcpyDeviceToHost);
 
+    cuozblasRgemm <TYPE1, TYPE2> (oh, 't', 'n', 1, 1, n, fone, devA, n, devB, n, fzero, ret, 1);
+
+	//cuozblasRgemm <TYPE1, TYPE2> (oh, 't', 'n', 1, 1, n, fone, devA, n, devB, n, fzero, (TYPE1*)oh->devWorkCommon, 1);
+	//cudaMemcpy (ret, oh->devWorkCommon, sizeof(TYPE1), cudaMemcpyDeviceToHost);
 	return 0;
 }
 template int32_t cuozblasRdot <double, double> (cuozblasHandle_t *oh, const int32_t n, const double *devA, const int32_t incx, const double *devB, const int32_t incy, double *ret);

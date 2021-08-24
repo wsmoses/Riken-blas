@@ -99,8 +99,8 @@ main (int32_t argc, char **argv)
 		cudaMalloc ((void **) &dev_X, sizeType * vlx_dev * th.incx);
 		cudaMalloc ((void **) &dev_Y, sizeType * vly_dev * th.incy);
 		// memcpy from hst to device
-		cublasSetMatrix (rda_dev, cda_dev, sizeType, hst_A, lda_hst, dev_A, lda_dev);
-		cublasSetVector (vlx_dev * th.incx, sizeType, hst_X, 1, dev_X, 1);
+		//cublasSetMatrix (rda_dev, cda_dev, sizeType, hst_A, lda_hst, dev_A, lda_dev);
+		//cublasSetVector (vlx_dev * th.incx, sizeType, hst_X, 1, dev_X, 1);
 		// ---------------------------------------------
 		#endif
 
@@ -121,7 +121,7 @@ main (int32_t argc, char **argv)
 		if (th.mode == 'c') {
 			trgRgemv (ha, th.tranA, rda_dev, cda_dev, alpha, dev_A, lda_dev, dev_X, 1, beta, dev_Y, 1);
 			#if defined (CUDA)
-			cublasGetVector (vly_dev * th.incy, sizeType, dev_Y, 1, hst_Y_t, 1);
+			//cublasGetVector (vly_dev * th.incy, sizeType, dev_Y, 1, hst_Y_t, 1);
 			#else
 			mublasCopyMat (vly_dev * th.incy, 1, dev_Y, 0, hst_Y_t, 0);
 			#endif

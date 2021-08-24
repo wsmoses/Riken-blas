@@ -127,8 +127,8 @@ main (int32_t argc, char **argv)
 		cudaMallocPitch ((void **) &dev_C, &pitch, sizeType * rdc_dev, cdc_dev);
 		ldc_dev = pitch/sizeType;
 		// memcpy from host to device
-		cublasSetMatrix(rda_dev, cda_dev, sizeType, hst_A, lda_hst, dev_A, lda_dev);
-		cublasSetMatrix(rdb_dev, cdb_dev, sizeType, hst_B, ldb_hst, dev_B, ldb_dev);
+		//cublasSetMatrix(rda_dev, cda_dev, sizeType, hst_A, lda_hst, dev_A, lda_dev);
+		//cublasSetMatrix(rdb_dev, cdb_dev, sizeType, hst_B, ldb_hst, dev_B, ldb_dev);
 		#endif
 		printf ("%d\t%d\t%d", th.dim_m_dev, th.dim_n_dev, th.dim_k_dev);
 		get_routine_theoretial_performance (&th);
@@ -147,7 +147,7 @@ main (int32_t argc, char **argv)
 		if (th.mode == 'c') {
 			trgRgemm (ha, th.tranA, th.tranB, th.dim_m_dev, th.dim_n_dev, th.dim_k_dev, alpha, dev_A, lda_dev, dev_B, ldb_dev, beta, dev_C, ldc_dev);
 			#if defined (CUDA)
-			cublasGetMatrix (rdc_dev, cdc_dev, sizeType, dev_C, ldc_dev, hst_C_t, ldc_hst);
+			//cublasGetMatrix (rdc_dev, cdc_dev, sizeType, dev_C, ldc_dev, hst_C_t, ldc_hst);
 			#else
 			mublasCopyMat (rdc_dev, cdc_dev, dev_C, ldc_dev, hst_C_t, ldc_hst);
 			#endif
