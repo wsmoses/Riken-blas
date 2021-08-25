@@ -60,9 +60,10 @@ void cuozblasFindMaxRKernel (
 		max = 0.;
 		for (j = iTy; j < n; j+=nTy) {
 			input = devInput[j * ldi + addrx];
-			if (max < fabs(input)) max = fabs(input);
+			//if (max < fabs(input)) max = fabs(input);
+            max += input;
 		}
-		shm[nTx * iTy + iTx] = max;	
+		//shm[nTx * iTy + iTx] = max;	
 		__syncthreads ();
 		if (iTy == 0) {
             /*
@@ -242,21 +243,21 @@ void cuozblasSplitCKernel (
 	const int32_t iTx = threadIdx.x;
 	const int32_t iTy = threadIdx.y;
 	const int32_t addrx = iBx * nTx + iTx;
-	const int32_t addry = iBy * nTy + iTy;
-	__shared__ double shm[nTx];
 
-	if (addry < n){
+	//if (addry < n)
+    {
 		//const TYPE sigma = CONST * scalbn (1., rho) * NextPowTwo <TYPE> (devMax[addry]) / splitShift;
 		TYPE max = 0.;
-		shm[iTx] = max;
 		__syncthreads ();
         
         #pragma unroll
 		for (int32_t i = nTx/2; i > 0; i>>=1) {
-			if (iTx < i) shm[iTx] += shm[iTx+i];
+			//if (iTx < i) shm[iTx] += shm[iTx+i];
+            max++;
 			__syncthreads ();
 		}
-		if (iTx == 0) devMax[addry] = shm[0];
+		//if (iTx == 0) 
+        devMax[iTx] = max;
 	}
 }
 
