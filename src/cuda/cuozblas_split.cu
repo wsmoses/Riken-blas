@@ -65,7 +65,6 @@ void cuozblasFindMaxRKernel (
 		}
 		//shm[nTx * iTy + iTx] = max;	
 		__syncthreads ();
-		if (iTy == 0) {
             /*
 			max = shm[iTx];
 			#pragma unroll
@@ -75,7 +74,6 @@ void cuozblasFindMaxRKernel (
 			}
             */
 			devMax[addrx] = max;
-		}
 	}
 }
 
@@ -103,17 +101,18 @@ void cuozblasFindMaxCKernel (
 		max = 0.;
 		for (int32_t i = addrx; i < m; i += nTx) {
 			input = devInput[addry * ldi + i];
-			if (max < fabs(input)) max = fabs(input);
+			//if (max < fabs(input)) 
+            max += (input);
 		}
 		shm[iTx] = max;
 		__syncthreads ();
 		#pragma unroll
 		for (int32_t i = nTx/2; i > 0; i>>=1) {
-			tmp = shm[iTx+i];
-			if (iTx < i && shm[iTx] < tmp) shm[iTx] = tmp;
+			if (iTx < i) shm[iTx] += shm[iTx+i];
 			__syncthreads ();
 		}
-		if (iTx == 0) devMax[addry] = shm[0];
+		//if (iTx == 0) 
+            devMax[addry] = shm[0];
 	} 
 }
 
@@ -189,7 +188,8 @@ void cuozblasSplitRKernel (
 		
 		//shm[nTx * iTy + iTx] = max_;	
         __syncthreads ();
-		if (iTy == 0) {
+		//if (iTy == 0)
+        {
             /*
 			max_ = shm[iTx];
 			#pragma unroll
@@ -240,14 +240,15 @@ void cuozblasSplitCKernel (
 	const int32_t iTx = threadIdx.x;
 	const int32_t addrx = iTx;
 
-	if (addry < n)
-    {
 		//const TYPE sigma = CONST * scalbn (1., rho) * NextPowTwo <TYPE> (devMax[addry]) / splitShift;
-		TYPE max = 0.;
-		__syncthreads ();
+	TYPE max = 0.;
+	__syncthreads ();
         
+	if (addrx < n)
+    {
         #pragma unroll
-		for (int32_t i = nTx/2; i > 0; i>>=1) {
+		//for (int32_t i = nTx/2; i > 0; i>>=1) {
+		if (nTx/2 > 0) {
 			//if (iTx < i) shm[iTx] += shm[iTx+i];
             max++;
 			__syncthreads ();
@@ -333,6 +334,7 @@ void cuozblasSplitDevice (
 	const int32_t dim = (major == 'r') ? n : m;
 	const int32_t rho = getRho <TYPE1, TYPE2> (dim, overflowModeFlag);
 
+    /*
 	if (major == 'r') {
 		ntx = SPLIT_N_NTX;
 		nty = SPLIT_N_NTY;
@@ -341,7 +343,9 @@ void cuozblasSplitDevice (
 		threads = dim3 (ntx, nty);
 		grid = dim3 (nbx, nby);
 		cuozblasSplitRKernel <<< grid, threads >>> (m, n, rho, devInput, ldi, devOutput, ldo, devSplit, lds, devSpExp, devMax, splitShift);
-	} else {
+	} else 
+        */
+    if (major != 'r') {
 		ntx = SPLIT_T_NTX;
 		nty = SPLIT_T_NTY;
 		nbx = 1;
