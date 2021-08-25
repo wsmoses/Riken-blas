@@ -116,7 +116,6 @@ void dim_dev_setup (testingHandle_t *th) {
 }
 
 void dim_dev_increment (testingHandle_t *th) {
-#if 0
 	if (th->dim_m_const == 0) {
 		switch (th->dim_step_mode) {
 			case 1: th->dim_m_dev *= 10; break;
@@ -138,7 +137,6 @@ void dim_dev_increment (testingHandle_t *th) {
 			default: th->dim_k_dev += th->dim_step; break;
 		}
 	}
-#endif
 }
 
 __inline__ double gettime () {
@@ -175,8 +173,6 @@ double getMaxTime (
 }
 
 int32_t get_num_sp_cores (int32_t cc) {
-    return 0;
-#if 0
 	switch (cc) {
 		case 300: return 192;
 		case 320: return 192;
@@ -191,12 +187,9 @@ int32_t get_num_sp_cores (int32_t cc) {
 		case 700: return 64;
 		default: return 0;
 	}
-#endif
 }
 
 int32_t get_num_dp_cores (int32_t cc) {
-    return 0;
-#if 0
 	switch (cc) {
 		case 300: return 64;
 		case 320: return 64;
@@ -211,7 +204,6 @@ int32_t get_num_dp_cores (int32_t cc) {
 		case 700: return 32;
 		default: return 0;
 	}
-#endif
 }
 
 void dev_setting (testingHandle_t *th) {

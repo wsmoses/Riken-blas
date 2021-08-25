@@ -179,7 +179,7 @@ int32_t cuozblasRgemm (
 			cudaMemcpy(batchCptr, batchCptrHst, sizeof(TYPE2*) * nSplitC, cudaMemcpyHostToDevice);
 			int32_t n_ = (n == 1 && oh->fastModeFlag == 0) ? numB : nbk_;
 			blasRgemmBatch (oh->ch, transA, transB, mbk_, n_, k, fone, (const TYPE2**)batchAptr, ldas,
-							(const TYPE2**)batchBptr, ldbs, fzero, (TYPE2**)batchCptrHst, ldcs, 1, nSplitC);
+							(const TYPE2**)batchBptr, ldbs, fzero, (TYPE2**)batchCptr, ldcs, 1, nSplitC);
 			oh->t_comp += cutimer() - t1;
 			oh->t_comp -= t_sum_local;
 			oh->t_sum += t_sum_local;
@@ -204,7 +204,6 @@ int32_t cuozblasRgemm (
 
 	return 0;
 }
-
 template int32_t cuozblasRgemm <double, double> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t ldb, const double beta, double *devC, const int32_t ldc);
 template int32_t cuozblasRgemm <double, float> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const double alpha, const double *devA, const int32_t lda, const double *devB, const int32_t ldb, const double beta, double *devC, const int32_t ldc);
 template int32_t cuozblasRgemm <float, float> (cuozblasHandle_t *oh,	const char transA, const char transB, const int32_t m, const int32_t n, const int32_t k, const float alpha, const float *devA, const int32_t lda, const float *devB, const int32_t ldb, const float beta, float *devC, const int32_t ldc); 

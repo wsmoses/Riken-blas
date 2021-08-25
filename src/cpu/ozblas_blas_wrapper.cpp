@@ -192,7 +192,7 @@ template void stdCsrmv (const int32_t m, const int32_t n, const double alpha, co
 template void stdCsrmv (const int32_t m, const int32_t n, const float alpha, const float* matA, const int32_t* matAind, const int32_t* matAptr, const float* x, const float beta, float* y);
 
 void blasRcsrmv (const char trans, const int32_t m, const int32_t n, const float alpha, const char *descrA, const float *A, const int32_t *devAcolind, const int32_t *devArowptr, const float *X, const float beta, float *Y) {
-	#if defined (MKL)
+	#if 0 && defined (MKL)
 // --- with Inspector-Executor Sparse BLAS ---
 	int32_t expected_calls = 1;
 	struct matrix_descr descrA_matrix;
@@ -212,7 +212,7 @@ void blasRcsrmv (const char trans, const int32_t m, const int32_t n, const float
 	#endif
 }
 void blasRcsrmv (const char trans, const int32_t m, const int32_t n, const double alpha, const char *descrA, const double *A, const int32_t *devAcolind, const int32_t *devArowptr, const double *X, const double beta, double *Y) {
-	#if defined (MKL)
+	#if 0 && defined (MKL)
 // --- with Inspector-Executor Sparse BLAS ---
 	int32_t expected_calls = 1;
 	struct matrix_descr descrA_matrix;
@@ -238,7 +238,7 @@ void blasRcsrmv (const char trans, const int32_t m, const int32_t n, const __flo
 #endif
 // CSRMM
 void blasRcsrmm (const char trans, const int32_t m, const int32_t n, const int32_t k, const float alpha, const char *descrA, const float *A, const int32_t *devAcolind, const int32_t *devArowptr, const float *B, const int32_t ldb, const float beta, float *C, const int32_t ldc) {
-	#if defined (MKL)
+	#if 0 && defined (MKL)
 // --- with Inspector-Executor Sparse BLAS ---
 	int32_t expected_calls = 1;
 	struct matrix_descr descrA_matrix;
@@ -258,7 +258,7 @@ void blasRcsrmm (const char trans, const int32_t m, const int32_t n, const int32
 	#endif
 }
 void blasRcsrmm (const char trans, const int32_t m, const int32_t n, const int32_t k, const double alpha, const char *descrA, const double *A, const int32_t *devAcolind, const int32_t *devArowptr, const double *B, const int32_t ldb, const double beta, double *C, const int32_t ldc) {
-	#if defined (MKL)
+	#if 0 &&defined (MKL)
 // --- with Inspector-Executor Sparse BLAS ---
 	int32_t expected_calls = 1;
 	struct matrix_descr descrA_matrix;
