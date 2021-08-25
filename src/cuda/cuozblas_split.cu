@@ -171,23 +171,29 @@ void cuozblasSplitRKernel (
 	__shared__ double shm[nTx*nTy];
 
 	if (addrx < m){
-		const TYPE sigma = CONST * scalbn (1., rho) * NextPowTwo <TYPE> (devMax[addrx]) / splitShift;
+		//const TYPE sigma = CONST * scalbn (1., rho) * NextPowTwo <TYPE> (devMax[addrx]) / splitShift;
 		TYPE max_ = 0.;
-		for (int32_t j = iTy; j < n; j += nTy) {
+		
+        for (int32_t j = iTy; j < n; j += nTy) {
+            printf("dev j=%d ldi=%d addrx=%d\n", j, ldi, addrx);
 			TYPE input = devInput[j * ldi + addrx];
-			const TYPE split = SUB (ADD (input, sigma), sigma);
-			input = SUB (input, split);
-			devSplit[j * lds + addrx] = split;
-			devOutput[j * ldo + addrx] = input;
-			max_ = MAX(max_, fabs(input));
+			//const TYPE split = SUB (ADD (input, sigma), sigma);
+			//input = SUB (input, split);
+			//devSplit[j * lds + addrx] = split;
+			//devOutput[j * ldo + addrx] = input;
+			max_ += input;//MAX(max_, fabs(input));
 		}
-		shm[nTx * iTy + iTx] = max_;	
-		__syncthreads ();
+		
+		//shm[nTx * iTy + iTx] = max_;	
+        __syncthreads ();
+        printf("post\n");
 		if (iTy == 0) {
+            /*
 			max_ = shm[iTx];
 			#pragma unroll
 			for (int32_t j = 1; j < nTy; j++) 
 				max_ = MAX(max_, fabs(shm[nTx * j + iTx]));
+            */
 			devMax[addrx] = max_;
 		}
 	}
@@ -218,24 +224,29 @@ void cuozblasSplitRKernel (
 	__shared__ double shm[nTx*nTy];
 
 	if (addrx < m){
-		const short tau = devSpExp[addrx] = ceil(log2(fabs(devMax[addrx])));
-		const TYPE1 sigma = MUL (MUL (CONST, scalbn (1., rho + tau)), splitShift);
+		//const short tau = devSpExp[addrx] = ceil(log2(fabs(devMax[addrx])));
+		//const TYPE1 sigma = MUL (MUL (CONST, scalbn (1., rho + tau)), splitShift);
 		TYPE1 max_ = 0.;
 		for (int32_t j = iTy; j < n; j += nTy) {
+            printf("rsplit j=%d ldi=%d addrx=%d\n", j, ldi, addrx);
 			TYPE1 input = devInput[j * ldi + addrx];
+            /*
 			const TYPE1 split = SUB (ADD (input, sigma), sigma);
 			input = SUB (input, split);
 			devSplit[j * lds + addrx] = scalbn(split, -tau);
 			devOutput[j * ldo + addrx] = input;
-			max_ = MAX(max_, fabs(input));
+            */
+			max_ += input; //MAX(max_, fabs(input));
 		}
-		shm[nTx * iTy + iTx] = max_;	
-		__syncthreads ();
+		//shm[nTx * iTy + iTx] = max_;	
+		//__syncthreads ();
 		if (iTy == 0) {
+            /*
 			max_ = shm[iTx];
 			#pragma unroll
 			for (int32_t j = 1; j < nTy; j++) 
 				max_ = MAX(max_, fabs(shm[nTx * j + iTx]));
+            */
 			devMax[addrx] = max_;
 		}
 	}
@@ -406,10 +417,11 @@ int32_t cuozblasSplit (
 	} else {
 		cuozblasFindMaxDevice (major, m, n, devInput, ldi, devMax);
 	}
-	// Split^(0) & FindMax^(1)
+	int32_t s = 1;
 	cuozblasSplitDevice (oh, major, m, n, devInput, ldi, devOutput, ldo, devSplit, lds, devSpExp, devMax, oh->overflowModeFlag, oh->splitShift);
+#if 0
+	// Split^(0) & FindMax^(1)
 	const int32_t maxS = (oh->nSplitMax > 0) ? oh->nSplitMax : NumSplitDefaultMax;
-	int32_t s;
 	for (s = 1; s < maxS; s++) {
 		TYPE1 check = 0.;
 		if ((major == 'r' && m == 1) || (major == 'c' && n == 1))
@@ -420,6 +432,7 @@ int32_t cuozblasSplit (
 		// Split^(i) & FindMax^(i+1)
 		cuozblasSplitDevice (oh, major, m, n, devOutput, ldo, devOutput, ldo, &devSplit[lds*n*s], lds, &devSpExp[ldse*s], devMax, oh->overflowModeFlag, oh->splitShift);
 	}
+#endif
 	if (oh->splitModeFlag > 0)
 		fprintf (OUTPUT, "OzBLAS error: infSplit is failed.\n");
 	return s;

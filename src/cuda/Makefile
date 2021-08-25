@@ -39,9 +39,9 @@ blas: $(ALLOBJ)
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
 %.o: %.cpp
-	$(CXX) $(FLAGS) -o $@ -c $< -I $(CUDA_PATH)/include
+	$(CXX) $(FLAGS) -o $@ -c $< -I$(CUDA_PATH)/include
 #cuozblas.o: cuozblas.cpp
-	$(CXX) $(FLAGS) -o $@ -c $< -I $(CUDA_PATH)/include
+	$(CXX) $(FLAGS) -o $@ -c $< -I$(CUDA_PATH)/include
 
 clean :
 	$(RM) *.o *.d

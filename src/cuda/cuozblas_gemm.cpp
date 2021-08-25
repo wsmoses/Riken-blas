@@ -43,14 +43,9 @@ int32_t cuozblasRgemm (
     TYPE2 *__attribute__((aligned(8192))) devCSplit;
     */
 	
-    TYPE1 *devATmp;
-    TYPE1 *devBTmp;
-    TYPE1 *devCTmp;
-	TYPE1 *devAmax;
-    TYPE1 *devBmax;
-	TYPE2 *devASplit;
-    TYPE2 *devBSplit;
-    TYPE2 *devCSplit;
+	TYPE1 *devATmp, *devBTmp, *devCTmp;
+	TYPE1 *devAmax, *devBmax;
+	TYPE2 *devASplit, *devBSplit, *devCSplit;
 	TYPE2 fone = 1., fzero = 0.;
 	short *devASpExp, *devBSpExp;
 	int32_t ldas, ldbs, ldcs, ldase, ldbse, ldat, ldbt, ldct;
@@ -118,20 +113,17 @@ int32_t cuozblasRgemm (
 
 	// main part (Split, Comp, Sum)
 	int32_t block_count = 0;
-	int32_t im = 0;
-    //for (int32_t im = 0; im < ceil((float)m/mbk); im++) 
-    {
+	for (int32_t im = 0; im < ceil((float)m/mbk); im++) {
 		int32_t mbk_ = (m-mbk*im >= mbk) ? mbk : m-mbk*im;
 		// SplitA -----------------------------------
-		//t1 = cutimer();
+		t1 = cutimer();
 		int32_t nSplitA = 0;
-		//if (cucheckTrans (transA) == 0) 
+		if (cucheckTrans (transA) == 0) 
 			nSplitA = cuozblasSplit (oh, 'r', mbk_, k, devA+im*mbk, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
-		//else 
-		//	nSplitA = cuozblasSplit (oh, 'c', k, mbk_, devA+im*mbk*lda, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
-		//oh->t_SplitA += cutimer() - t1;
+		else 
+			nSplitA = cuozblasSplit (oh, 'c', k, mbk_, devA+im*mbk*lda, lda, devATmp, ldat, devASplit, ldas, devASpExp, ldase, devAmax);
+		oh->t_SplitA += cutimer() - t1;
 
-#if 0
 		for (int32_t in = 0; in < ceil((float)n/nbk); in++) {
 			int32_t nbk_ = (n-nbk*in >= nbk) ? nbk : n-nbk*in;
 			// SplitB -----------------------------------
@@ -203,13 +195,12 @@ int32_t cuozblasRgemm (
 			oh->nSplitB += nSplitB;
 			oh->nSplitC += nSplitC;
 		} // EndFor (in)
-#endif
 	} // EndFor (im)
 
-	//oh->t_total = cutimer() - t0;
-	//oh->nSplitA /= (float)block_count;
-	//oh->nSplitB /= (float)block_count;
-	//oh->nSplitC /= (float)block_count;
+	oh->t_total = cutimer() - t0;
+	oh->nSplitA /= (float)block_count;
+	oh->nSplitB /= (float)block_count;
+	oh->nSplitC /= (float)block_count;
 
 	return 0;
 }
