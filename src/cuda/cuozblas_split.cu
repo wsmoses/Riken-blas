@@ -236,15 +236,11 @@ void cuozblasSplitCKernel (
 	TYPE *devMax,
 	const int32_t splitShift
 ) {
-	const int32_t iBx = blockIdx.x;
-	const int32_t iBy = blockIdx.y;
 	const int32_t nTx = SPLIT_T_NTX;//blockDim.x;
-	const int32_t nTy = SPLIT_T_NTY;//blockDim.y;
 	const int32_t iTx = threadIdx.x;
-	const int32_t iTy = threadIdx.y;
-	const int32_t addrx = iBx * nTx + iTx;
+	const int32_t addrx = iTx;
 
-	//if (addry < n)
+	if (addry < n)
     {
 		//const TYPE sigma = CONST * scalbn (1., rho) * NextPowTwo <TYPE> (devMax[addry]) / splitShift;
 		TYPE max = 0.;
@@ -256,8 +252,10 @@ void cuozblasSplitCKernel (
             max++;
 			__syncthreads ();
 		}
-		//if (iTx == 0) 
-        devMax[iTx] = max;
+        //if (addrx < n)
+        {
+            devMax[addrx] = max;
+        }
 	}
 }
 
